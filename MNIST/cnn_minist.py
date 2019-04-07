@@ -28,7 +28,6 @@ epoch = 1
 
 executor     = EagerExecutor()
 learningRate = LinearDecayLearningRateIterator(totalStep = epoch * len(trainX), start=1e-3, end=0.0)
-# trainer      = AdamTrainer(learningRate = learningRate)
 trainer      = AdamTrainer(learningRate = learningRate)
 
 x = parameter(executor, [28, 28, 1], False)
@@ -67,8 +66,9 @@ for e in range(epoch):
         x.feed(trainX[i])
         y.feed(one_hot_y)
 
-        layer1 = (x.conv2d(w_conv1) + b_conv1).relu().maxPooling2d(filterHeight=2, filterWidth=2, strideY=2, strideX=2)
-        layer2 = (layer1.conv2d(w_conv2) + b_conv2).relu().maxPooling2d(filterHeight=2, filterWidth=2, strideY=2, strideX=2)
+        layer1 = (x.conv2d(w_conv1, covered=False) + b_conv1).relu().maxPooling2d(covered = False, filterHeight=2, filterWidth=2, strideY=2, strideX=2)
+        layer2 = (layer1.conv2d(w_conv2, covered=False) + b_conv2).relu().maxPooling2d(covered = False, filterHeight=2, filterWidth=2, strideY=2, strideX=2)
+
         layer3 = (w_fc1 * layer2.reShape([4 * 4 * 64]) + b_fc1).relu()
         layer4 = w_fc2 * layer3 + b_fc2
 
@@ -76,7 +76,7 @@ for e in range(epoch):
 
         print "epoch:", e, ", step:", i, ", loss => ", loss.valueStr()
 
-        loss.backward()
+        backward(loss)
 
         trainer.train(executor)
 
@@ -88,8 +88,8 @@ wrong   = 0
 for i in range(len(testX)):
     x.feed(testX[i])
 
-    layer1 = (x.conv2d(w_conv1) + b_conv1).relu().maxPooling2d(filterHeight=2, filterWidth=2, strideY=2, strideX=2)
-    layer2 = (layer1.conv2d(w_conv2) + b_conv2).relu().maxPooling2d(filterHeight=2, filterWidth=2, strideY=2, strideX=2)
+    layer1 = (x.conv2d(w_conv1, covered=False) + b_conv1).relu().maxPooling2d(filterHeight=2, filterWidth=2, strideY=2, strideX=2)
+    layer2 = (layer1.conv2d(w_conv2, covered=False) + b_conv2).relu().maxPooling2d(filterHeight=2, filterWidth=2, strideY=2, strideX=2)
     layer3 = (w_fc1 * layer2.reShape([4 * 4 * 64]) + b_fc1).relu()
     layer4 = w_fc2 * layer3 + b_fc2
     ret    = layer4.softmax()

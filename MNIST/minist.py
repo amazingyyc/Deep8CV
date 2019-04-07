@@ -45,7 +45,7 @@ for i in range(len(trainX)):
 
     print i + 1, ", loss => ", loss.valueStr()
 
-    loss.backward()
+    backward(loss)
 
     trainer.train(executor)
 

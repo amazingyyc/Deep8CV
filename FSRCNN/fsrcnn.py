@@ -84,11 +84,11 @@ def FSRCNN(trainingPath, testPath, outputPath):
             layer6 = (layer5.conv2d(w6, True, 1, 1) + b6).lRelu(0.01)
             layer7 = layer6.deConv2d(w7, True, scale, scale) + b7
 
-            loss = layer7.l1DistanceLoss(y)
+            loss = layer7.l1Loss(y)
 
             print "epoch:", e, ", step:", i, ", loss => ", loss.valueStr()
 
-            loss.backward()
+            backward(loss)
 
             trainer.train(executor)
 
