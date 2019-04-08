@@ -60,16 +60,69 @@ class BatchNorm:
 
             return self.gamma.multiply(norm) + self.beta
 
-def SegNet():
-    epoch = 1
-    trainCount = 100
+def readData():
+    sampleNames = []
 
-    imageHeight = 720
-    imageWidth  = 960
+    '''only read size is 320X240'''
+    with open('iccv09Data/horizons.txt', 'r') as fp:
+        for line in fp.readlines():
+            strs = line.split(' ')
+
+            if 320 == int(strs[1]) and 240 == int(strs[2]):
+                sampleNames.append(strs[0])
+
+    x = np.zeros((len(sampleNames), 240, 320, 3), dtype=np.float32)
+    y = np.fromfile('iccv09Data/labels.bin', dtype=np.float32)
+
+    y = np.reshape(y, (len(sampleNames), 240, 320, 9))
+
+    '''read image'''
+    for i in range(len(sampleNames)):
+        print('read image ==> ', i)
+
+        image = PIL.Image.open('iccv09Data/images/' + sampleNames[i] + '.jpg')
+
+        '''convert to [-1.0, 1.0]'''
+        x[i] = (np.array(image).astype(np.float32) / 255 - 0.5) * 2.0
+
+    # '''
+    #  (sky, tree, road, grass, water, building, mountain, or foreground object). A negative number indicates unknown
+    #  [0-7] means object, 8 means nothing
+    # '''
+    # for i in range(len(sampleNames)):
+    #     print('read region ==> ', i)
+    #
+    #     with open('iccv09Data/labels/' + sampleNames[i] + '.regions.txt', 'r') as fp:
+    #         allLines = fp.readlines()
+    #
+    #         for k in range(240):
+    #             labels = allLines[k].split(' ')
+    #
+    #             for l in range(320):
+    #                 type = int(labels[l])
+    #
+    #                 if type >= 0:
+    #                     y[i][k][l][type] = 1.0
+    #                 else:
+    #                     y[i][k][l][8] = 1.0
+
+    return x, y
+
+def SegNet():
+    epoch = 10
+
+    trainX, trainY = readData()
+
+    imageHeight = 240
+    imageWidth  = 320
     imageChannel = 3
 
-    executor     = EagerExecutor()
-    learningRate = LinearDecayLearningRateIterator(totalStep=epoch * trainCount, start=1e-3, end=0.0)
+    typeCount = 9
+
+    batchSize = 8
+
+    executor     = EagerExecutor(DeviceType.CPU)
+    learningRate = LinearDecayLearningRateIterator(totalStep=epoch * len(trainX), start=1e-3, end=0.0)
     trainer      = AdamTrainer(learningRate=learningRate)
 
     conv1 = Conv2d(executor, 3, 64, 3, 3)
@@ -96,13 +149,12 @@ def SegNet():
     conv1d = Conv2d(executor, 128, 64, 3, 3)
     bn1d   = BatchNorm(executor, 64)
 
-    '''output 12 type'''
-    convLast = Conv2d(executor, 64, 12, 1, 1)
+    convLast = Conv2d(executor, 64, typeCount, 1, 1)
 
     for e in range(epoch):
-        for i in range(trainCount):
-            x = inputParameter(executor, [imageHeight, imageWidth, imageChannel])
-            y = inputParameter(executor, [imageHeight, imageWidth, imageChannel])
+        for i in range(0, len(trainX) - batchSize + 1, batchSize):
+            x = inputParameter(executor, [imageHeight, imageWidth, imageChannel]).feed(trainX[i])
+            y = inputParameter(executor, [imageHeight, imageWidth, typeCount]).feed(trainY[i])
 
             layer1 = bn1.forward(conv1.forward(x))
             pool1  = layer1.maxPooling2d(False, 2, 2, 2, 2)
@@ -132,14 +184,18 @@ def SegNet():
             layer1d = bn1d.forward(conv1d.forward(pool2d))
             pool1d  = layer1d.maxUnPooling2d(index1, False, 2, 2, 2, 2)
 
-            last = convLast.forward(pool1d)
+            pred = convLast.forward(pool1d)
 
-            print last.shape().toStr()
+            loss = pred.softmaxCrossEntropyLoss(y)
 
+            print 'epoch:', e, ', step:', i, 'loss ==> ', loss.valueStr()
 
+            backward(loss)
+            trainer.train(executor)
 
 if __name__ == '__main__':
     SegNet()
+
 
 
 

@@ -1,0 +1,12 @@
+.idea/
+MNIST/deep8.pyd
+MNIST/deep8.lib
+FSRCNN/fsrcnn_y.py
+FSRCNN/deep8.pyd
+FSRCNN/deep8.lib
+MNIST/deep8.exp
+FSRCNN/deep8.exp
+SegNet/deep8.pyd
+SegNet/deep8.lib
+SegNet/deep8.exp
+SegNet/iccv09Data/labels.bin
